@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>GALLERIOD 画廊碎片</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0, minimal-ui">
+	<script src="js/jquery-2.1.4.min.js"></script>
+	<script src="js/three.min.js"></script>
+	<script src="js/delaunay.js"></script>
+	<script src="js/tween.min.js"></script>
+	<script type="x-shader/x-vertex" id="vertexshader">
+		attribute float size;
+		attribute vec3 customColor;
+		varying vec3 vColor;
+
+		void main() { 
+			vColor = customColor;
+			vec4 mvPosition = modelViewMatrix * vec4( position, 1 );
+			gl_PointSize = 1.3;// * ( 300.0 / length( mvPosition.xyz ) );
+			gl_Position = projectionMatrix * mvPosition;
+		}
+	</script>
+
+	<div id='wx_pic' style='margin:0 auto;display:none;'>
+	<img src='galleriod.jpg' />
+	</div>
+	
+	<script type="x-shader/x-fragment" id="fragmentshader">
+		uniform vec3 color;
+		uniform sampler2D texture;
+		varying vec3 vColor;
+
+		void main() {
+			//gl_FragColor = vec4( color * vColor, 0.5 );
+			gl_FragColor = vec4(vColor,1); //texture2D( texture, gl_PointCoord );
+		}
+	</script>
+	<style>
+		.menuButton{
+			font-family: "Courier New", courier, '幼圆', monospace;
+			text-shadow: orange 0 1px 0;
+			font-size:23px;
+			padding-top: 15px;
+			padding-left: 30px;
+			/*font-weight: bold;*/
+			color: #505050;
+		}
+		.menuButton:hover{
+			color:blue;
+			cursor: pointer;
+		}
+		.Back{
+			/*background: rgba(256,230,210,0.7);*/
+
+			background:
+				radial-gradient(rgba(255,255,255,.4) 15%, transparent 30%) 0 0,
+				radial-gradient(rgba(255,255,255,.4) 15%, transparent 30%) 8px 8px,
+				radial-gradient(rgba(255,255,255,.3) 15%, transparent 50%) 0 1px,
+				radial-gradient(rgba(255,255,255,.3) 15%, transparent 50%) 8px 9px;
+			background-color:rgba(256,230,210,0.69);
+			background-size:16px 16px;
+
+			position:absolute;
+			margin:auto;
+			top:0;
+			bottom:0;
+			left:0;
+			right:0;
+			/*height*/
+			border-top: 1px solid rgba(256,256,256,1);
+			border-bottom: 1px solid rgba(256,256,256,1);
+			
+		}
+		@keyframes bgAnimation{
+			0%   {background-position-x: 0px;}
+			50%  {background-position-x: -1080px;}
+			100% {background-position-x: 0px;}
+		}
+		#logoshare{
+			position:absolute;
+			top:0;
+			bottom:25px;
+			left:50%;
+			right:0;
+			height:270px;
+			margin:auto;
+			background-color: rgba(256,256,256,0.3);
+		}
+		.painting{
+			position:absolute;
+			top:0;
+			bottom:165px;
+			left:0;
+			right:0;
+			text-align:center;
+			height:370px;
+			margin:auto;
+		}
+		.paintingName{
+			font-size:23px;
+			font-family: "Palatino Linotype", "Book Antiqua", "仿宋", Palatino, serif;
+		}
+		.paintingInfo{
+			position:absolute; top:200px; left:0; right:0;
+			font-family: "Courier New", courier, '微软雅黑', monospace;
+			background-color: rgba(256,256,256,0.7);
+			padding:6px;
+		}
+		.paintingForm{
+			position:absolute; top:270px; left:0; right:0; width:200px; margin:auto;
+			padding:7px;
+			background-color: rgba(256,256,256,0.7);
+			font-family: "Courier New", courier, '微软雅黑', monospace;
+		}
+		.smBtnBlue{
+			display:inline-block;
+			padding:7px 0;
+			color: white;
+			text-shadow: 1px 1px 3px #373724;
+			background:rgba(68,127,256,0.7);
+			cursor:pointer;
+		}
+		.smBtnBlue:hover{
+			background:rgba(68,127,256,1);
+		}
+		
+		.smBtnRed{
+			display:inline-block;
+			padding:7px 0;
+			color: white;
+			text-shadow: 1px 1px 3px #373724;
+			background:rgba(256,107,68,0.7);
+			cursor:pointer;
+		}
+		.smBtnRed:hover{
+			background:rgba(256,107,68,1);
+		}
+		.Front{
+			position:absolute;
+			top:0; bottom:0; left:0; right:0;
+			margin:0 auto;
+			width:500px;
+		}
+		.gameInfo{
+			position:absolute;
+			top:0; bottom:0; left:0; right:0;
+			margin:0 auto;
+			width:500px;
+		}
+		.modal{
+			position:absolute;
+			top:0px; bottom:0px; right:0; left:0;
+			background: rgba(0,0,0,0.7);
+			font-family: "Courier New", courier, '微软雅黑', monospace;
+		}
+		.modal>div{
+			background:white;
+			padding:15px;
+		}
+		.modal>div .clos{
+			background: silver;
+			padding: 5px 8px;
+			position: absolute;
+			top: -32px;
+			right: 0;
+		}
+		.modal>div .clos:hover{
+			cursor:pointer;
+			background: white;
+		}
+		#help{
+			position:absolute;
+			top:15px; bottom:15px; left:0; right:0;
+			margin:auto;
+			width:240px;
+			height:150px;
+		}
+		#abandon{
+			position:absolute;
+			top:15px; bottom:15px; left:0; right:0;
+			margin:auto;
+			width:240px;
+			height:70px;
+			text-align:center;
+		}
+		#about{
+			position:absolute;
+			top:15px; bottom:15px; left:0; right:0;
+			margin:auto;
+			width:260px;
+			height:60px;
+		}
+		@media screen and (max-width:518px){
+			#logoshare{width: 259px; left:auto;}
+			.Front{width: 100%;}
+		}
+		@media screen and (max-height:667px){
+			.Back{top:262px; margin-top:0px;}
+			#logoshare{top:186px; margin-top:0}
+			.painting{top:64.5px; margin-top:0}
+		}
+		#gameContainer{
+			position:absolute;
+			width:100%;
+			height:100%;
+		}
+	</style>
+</head>
+
+<body style="margin:0px; overflow:hidden;">
+	
+	<div id="gameContainer"></div>
+	
+	<div id="homeContainer">
+		<div id="logoshare">
+			<div style='font-size: 15px; font-family: "Courier New", Courier, monospace; position:relative; top: 10px; margin-left:10px; color: white; text-shadow: 1px 1px 3px #373724'> artheru proudly presents </div>
+			<div style='font-size: 45px; font-family: "Courier New", Courier, monospace; position:relative; top: 10px; margin-left:10px; color: white; text-shadow: 1px 1px #373724, 0px 0px 5px #c5f3da;'> Galleriod </div>
+			
+
+<div style="position:absolute; top:222px; left:10px">
+
+<div class="bdsharebuttonbox"><a href="#" class="bds_more" data-cmd="more"></a><a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a><a href="#" class="bds_renren" data-cmd="renren" title="分享到人人网"></a><a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a><a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a><a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a></div>
+<script>window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMiniList":false,"bdPic":"","bdStyle":"0","bdSize":"32"},"share":{}};with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)];</script>
+
+</div>
+
+		</div>
+		<div id="gameHome" class="Back" style="height:142px;">
+			<div class="Front">
+				<div class="menuButton" id="menuStart"> 开始游戏 </div>
+				<div class="menuButton" id="menuHelp"> 帮助 </div>
+				<div class="menuButton" id="menuAbout"> 作者 </div>
+			</div>
+		</div>
+	</div>
+	
+	<div id="introContainer" style="display:none">
+		<div class="painting">
+			<img class="paintingThumb" src="imgs/thumbs/monalisa.jpg"></img>
+			<div class="paintingInfo">
+				<div class="paintingName">Mona Lisa</div>
+				<div class="AuthorDate">Leonardo Da Vinci, 1024 AD</div>
+			</div>
+			
+			<div class="paintingForm" style=" height:135px">
+				<div style="margin-top:5px">
+					<div class="smBtnBlue" style="width:90px; " id="startIt">开始挑战</div>
+					<div class="smBtnRed" style="width:90px; " id="returnIntro">返回</div>
+				</div>
+				<div class="paintingBrief" style="margin-top:5px">这是达芬奇的传世之作，蒙娜丽莎的微笑就隐藏在这碎片之中。</div>
+			</div>
+		</div>
+	</div>
+	
+	<div id="nextContainer" style="display:none">
+		<div class="painting">
+			<img class="paintingThumb" src="imgs/thumbs/monalisa.jpg"></img>
+			<div class="paintingInfo">
+				<div class="paintingName">Mona Lisa</div>
+				<div class="AuthorDate">Leonardo Da Vinci, 1024 AD</div>
+			</div>
+			
+			<div class="paintingForm" style=" height:70px">
+				<div>挑战成功！</div>
+				<div style="margin-top:10px">
+					<div class="smBtnBlue" style="width:90px; " id="nextLvl">下一关</div>
+					<div class="smBtnRed" style="width:90px; " id="returnToMain">返回</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<div id="finalContainer" style="display:none">
+		<div class="painting">
+			<img class="paintingThumb" src="imgs/thumbs/monalisa.jpg"></img>
+			<div class="paintingInfo">
+				<div class="paintingName">Mona Lisa</div>
+				<div class="AuthorDate">Leonardo Da Vinci, 1024 AD</div>
+			</div>
+			
+			<div class="paintingForm" style=" height:70px">
+				<div>通关！</div>
+				<div style="margin-top:10px">
+					<div class="smBtnRed" style="width:90px; " id="finished">返回</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<div id="progressContainer" style="display:none">
+		<div style="position:absolute; bottom:0; left:0; right:0; 
+			font-family: 'Courier New', courier, '微软雅黑', monospace;">
+			<div class="smBtnRed" id="abandonBtn" style="width:100%; text-align:center">放弃</div>
+		</div>
+	</div>
+	
+	<div class="modal" id="abandonM" style="display:none">
+		<div id="abandon">
+			<div id="aboutContent">
+			真的要放弃挑战么？
+			</div>
+			<div style="margin-top:15px">
+				<div id="forgetit" class="smBtnBlue" style="width:110px">继续挑战</div>
+				<div id="confirmabandon" class="smBtnRed" style="width:110px">确定放弃</div>
+			</div>
+		</div>
+	</div>
+	
+	<div class="modal" id="aboutM" style="display:none">
+		<div id="about">
+			<span class="clos">&#10006;</span>
+			<div id="aboutContent">
+			Artheru 出品，基于WebGL的简单游戏，图片来自公共领域 <br/>
+			欢迎联系:<a href="mailto:artheru@foxmail.com">artheru@foxmail.com</a>
+			</div>
+		</div>
+	</div>
+	<div class="modal" id="helpM" style="display:none">
+		<div id="help">
+			<span class="clos">&#10006;</span>
+			<div id="helpContent">
+			Galleriod的藏画乍一看全是碎片，其实只要找到合适的欣赏位置，就能看到藏画的原貌。你能找到这个位置么？
+			</div>
+		</div>
+	</div>
+	<script>
+	
+		$("#menuHelp").bind("click touchstart",function(){$("#helpM").show()});
+		$("#menuAbout").bind("click touchstart",function(){$("#aboutM").show()});
+		document.body.addEventListener('touchstart', function(e){ e.preventDefault(); });
+		function bindEvents(){
+			Interactions={
+				Down:null,
+				Up:null,
+				Move:null
+			};
+			$("#gameContainer").on("mousemove", function (e) {
+				if (!Interactions.Move)
+					return;
+				e.preventDefault();
+				Interactions.Move(e.clientX, e.clientY)
+			});
+			$("#gameContainer").on("mousedown", function (e) {
+				if (!Interactions.Down)
+					return;
+				e.preventDefault();
+				Interactions.Down(e.clientX, e.clientY)
+			});
+			$("#gameContainer").on("mouseup mouseout", function (e) {
+				if (!Interactions.Up)
+					return;
+				e.preventDefault();
+				Interactions.Up(e.clientX, e.clientY)
+			});
+
+			$("#gameContainer").on("touchmove", function (e) {
+				if (!Interactions.Move)
+					return;
+				e.preventDefault();
+				Interactions.Move(e.originalEvent.changedTouches[0].pageX, e.originalEvent.changedTouches[0].pageY)
+			});
+			$("#gameContainer").on("touchstart", function (e) {
+				if (!Interactions.Down)
+					return;
+				e.preventDefault();
+				$("#html").html(e.originalEvent.changedTouches[0].pageX);
+				Interactions.Down(e.originalEvent.changedTouches[0].pageX, e.originalEvent.changedTouches[0].pageY)
+			});
+			$("#gameContainer").on("touchend", function (e) {
+				if (!Interactions.Up)
+					return;
+				e.preventDefault();
+				Interactions.Up(e.originalEvent.changedTouches[0].pageX, e.originalEvent.changedTouches[0].pageY)
+			});
+		}
+		bindEvents();
+		
+		var SIZE=800;
+		var RADIUS=1000, cRADIUS=1000;
+		var VIEW=45; 
+		var VIEWRad=VIEW/180*Math.PI;
+		var VERTICES=40000;
+		var IMGW=750;
+		
+		
+		container=$("#gameContainer");
+		
+		var renderer, camera, scene, material;
+		var origin=new THREE.Vector3(0,0,0);
+		var correct=new THREE.Vector3(0,-cRADIUS,0);
+		var sUp=new THREE.Vector3(1,0,0);
+		
+		function TWEENer(){
+			TWEEN.update();
+			renderer.render(scene, camera);
+		}
+		
+		function putFarCamera(){
+			camera.position.x=0;
+			camera.position.y=-4999;
+			camera.position.z=0;
+			camera.lookAt(origin);
+			camera.updateProjectionMatrix();
+		}
+		function goFarCamera(next){
+			//camera.lookAt(origin);
+			var oVec=camera.position.clone();
+			var xyz={x:oVec.x,y:oVec.y,z:oVec.z};
+			var targetXyz={x:xyz.x*10,y:xyz.y*10,z:xyz.z*10};
+			var tween=new TWEEN.Tween(xyz)
+				.to(targetXyz,1000)
+				.easing(TWEEN.Easing.Quintic.In)
+				.onUpdate(function(){
+					camera.position.x=this.x;
+					camera.position.y=this.y;
+					camera.position.z=this.z;
+					//camera.updateProjectionMatrix();
+					//console.log(xyz.x);
+				})
+				.onComplete(function(){
+					putFarCamera();
+					if (next) next();
+				}).start();
+			animator=function(){
+				TWEEN.update();
+				renderer.render(scene, camera);
+			}
+		}
+		
+		var resetQueue=null
+		function resetCamera(next){
+			if (resetQueue!=null) return;
+			resetQueue=next;
+			
+			var xyz={x:camera.position.x,y:camera.position.y,z:camera.position.z};
+			var tween=new TWEEN.Tween(xyz)
+				.to({x:0,y:-cRADIUS,z:0},1000)
+				.easing(TWEEN.Easing.Quintic.Out)
+				.onUpdate(function(){
+					camera.position.x=this.x;
+					camera.position.y=this.y;
+					camera.position.z=this.z;
+					//camera.updateProjectionMatrix();
+				})
+				.onComplete(function(){
+					if (resetQueue) { a=resetQueue; resetQueue=null; a();}
+				}).start();
+			animator=function(){
+				TWEEN.update();
+				renderer.render(scene, camera);
+			}
+		}
+		
+		function moveCamera(upDir, leftDir, amountUp, amountLeft, next){
+			var oVec=camera.position.clone();
+			var oRot=camera.quaternion.clone();
+			var rotQuan;
+			var tween=new TWEEN.Tween({x:0,y:0})
+				.to({x:amountUp,y:amountLeft},200)
+				.onUpdate(function(){
+					var dT=this.x, dL=this.y;
+					var moveVec=(new THREE.Vector3())
+						.addScaledVector(upDir,dT)
+						.addScaledVector(leftDir,dL);
+					var l=moveVec.length();
+					if (l<0.0001) return;
+					moveVec.multiplyScalar(cRADIUS/l);
+					var rad=l/(RADIUS*Math.PI)*10000;
+					var cos=Math.cos(rad), sin=Math.sin(rad);
+					camera.position.addVectors(
+						oVec.clone().multiplyScalar(cos), 
+						moveVec.multiplyScalar(sin)
+					);
+					rotQuan=(new THREE.Quaternion()).setFromAxisAngle(moveVec.cross(oVec).normalize(), -rad);
+					camera.rotation.setFromQuaternion(
+						rotQuan.multiply(oRot));
+				})
+				.onComplete(next)
+				.start();
+			animator=function(){
+				TWEEN.update();
+				renderer.render(scene, camera);
+			}
+		}
+		
+		function shuffleCamera(upDir, leftDir, n){
+			var oVec=camera.position.clone();
+			moveCamera(upDir, leftDir, Math.random()-0.5, Math.random()-0.5, function(){
+				var Quat=new THREE.Quaternion().setFromAxisAngle(oVec.clone().cross(camera.position).normalize(),camera.position.angleTo(oVec));
+				leftDir.applyQuaternion(Quat).normalize();	
+				upDir=(new THREE.Vector3()).crossVectors(leftDir, camera.position).normalize();
+				if (n>0)
+					shuffleCamera(upDir, leftDir, n-1);
+				else
+					startLevel(upDir, leftDir);
+			});
+			return;
+		}
+		
+		function initializeApp(){
+		
+			
+			renderer=new THREE.WebGLRenderer({ antialias: true });
+			renderer.setPixelRatio( window.devicePixelRatio );
+			renderer.setSize( window.innerWidth , window.innerHeight );
+			renderer.setClearColor(0xffffff,1);
+			
+			camera = new THREE.PerspectiveCamera( VIEW+34, window.innerWidth /window.innerHeight, 1, 999999 );
+			//camera = new THREE.PerspectiveCamera( 160, window.innerWidth /window.innerHeight, 1, 999999 );
+			
+			putFarCamera();
+			
+			container.append( renderer.domElement );
+			window.addEventListener( 'resize', function(){
+				camera.aspect=(window.innerWidth / window.innerHeight);
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth , window.innerHeight );
+			}, false );
+			
+			
+			material=new THREE.ShaderMaterial({
+				uniforms: {
+					color:   { type: "c", value: new THREE.Color( 0xffffff ) }
+				},
+				vertexShader: $("#vertexshader").html(),
+				fragmentShader: $("#fragmentshader").html(),
+				side:THREE.DoubleSide,
+				alphaTest: 0.9,
+			});
+		};
+		initializeApp();
+		
+		var triangles=[];
+		function initMesh(){
+			var points=[];
+			for (var i=0; i<VERTICES; ++i){
+				var x=Math.random()*1.41421-0.707106781;
+				var y=Math.random()*1.41421-0.707106781;
+				var z=Math.random()*1.41421-0.707106781;
+				if (x*x+y*y+z*z<=0.5 && x>-0.5 && x<0.5 && y>-0.5 && y<0.5)
+					points.push([x+0.5, y+0.5]);
+			}
+			var triangleAs = Delaunay.triangulate(points);
+			function Point(x,y){
+				this.x=x;
+				this.y=y;
+			}
+			triangles=[];
+			for(var i = triangleAs.length; i; ) {
+				var ptr=parseInt((i-1)/3);
+				triangles[ptr]={area:0, nodes:[]};
+				--i; triangles[ptr].nodes[i%3]=new Point(points[triangleAs[i]][0], points[triangleAs[i]][1]);
+				--i; triangles[ptr].nodes[i%3]=new Point(points[triangleAs[i]][0], points[triangleAs[i]][1]);
+				--i; triangles[ptr].nodes[i%3]=new Point(points[triangleAs[i]][0], points[triangleAs[i]][1]);
+			}
+		}
+		initMesh();
+		
+		function generateMesh(imageData){
+		
+			var fragments=triangles.length;
+			
+			var positions = new Float32Array( fragments * 3 * 3 );
+			var colors = new Float32Array( fragments * 3 * 3 );
+			
+			function area(p1,p2,p3){
+				return (p1.x*p2.y+p2.x*p3.y+p3.x*p1.y-p1.x*p3.y-p2.x*p1.y-p3.x*p2.y)/2
+			}
+			var mArea=0;
+			for (var i = 0; i < fragments; i++) {
+				var t=triangles[i];
+				mArea+=(t.area=Math.abs(area(t.nodes[0],t.nodes[1],t.nodes[2])));
+			}
+			mArea/=fragments;
+			mArea/=fragments;
+			triangles.sort(function(a,b){
+				return b.area-a.area+Math.random()*mArea*0.3;
+			});
+			
+			var theta=Math.atan(2*Math.tan(VIEWRad/2))*2;
+			var FRAGRADIUS=RADIUS*Math.sin(theta/2);
+			var tgtheta2=Math.tan(theta/2);
+			function setPosition(w, p, rd){
+				var ls=Math.sqrt((0.5-p.x)*(0.5-p.x)+(0.5-p.y)*(0.5-p.y));
+				var omega=Math.atan(2*ls*tgtheta2);
+				
+				var d=0.5/tgtheta2;
+				var lt=Math.sqrt(ls*ls+d*d);
+				
+				var midL=RADIUS*Math.cos(omega);
+				var tmp=(RADIUS*Math.sin(omega));
+				var pm=Math.sqrt(FRAGRADIUS*FRAGRADIUS-tmp*tmp);
+				
+				function gauss(x){
+					return Math.exp(-x*x);
+				}
+				
+				if (pm<250) pm=150*gauss(pm/150)+pm;
+				var l=midL+(rd*pm*2-pm);
+				
+				positions[w] =l/lt*(0.5-p.x);
+				positions[w+2]=l/lt*(0.5-p.y);
+				positions[w+1]=l/lt*d-RADIUS;
+			}
+			fragR=RADIUS*0.8;
+			function randomizePosition(w){
+				sz=19;
+				while(true){
+					var x=Math.random()*fragR*2-fragR;
+					var y=Math.random()*fragR*2-fragR;
+					var z=Math.random()*fragR*2-fragR;
+					if (x*x+y*y+z*z<=fragR*fragR &&  // in view
+						x*x+y*y+z*z>=FRAGRADIUS*FRAGRADIUS //out ball
+					   ){
+						if (y<0 && (Math.sqrt(x*x+z*z)-3*sz)/(RADIUS+y)*RADIUS<FRAGRADIUS)
+							continue;
+						positions[w  ]=x+Math.random()*sz;
+						positions[w+1]=y+Math.random()*sz;
+						positions[w+2]=z+Math.random()*sz;
+						positions[w+3]=x+Math.random()*sz;
+						positions[w+4]=y+Math.random()*sz;
+						positions[w+5]=z+Math.random()*sz;
+						positions[w+6]=x+Math.random()*sz;
+						positions[w+7]=y+Math.random()*sz;
+						positions[w+8]=z+Math.random()*sz;
+						return;
+					}
+				}
+			}
+			for (var i = 0; i < fragments; i++) {
+				t = triangles[i];
+				p0 = t.nodes[0]; p1 = t.nodes[1]; p2 = t.nodes[2];	
+				
+				var rd=Math.pow(i/fragments,0.5)*1.07-0.07;
+				setPosition(i*9, p0, rd+Math.random()*0.03);
+				setPosition(i*9+3, p1, rd+Math.random()*0.03);
+				setPosition(i*9+6, p2, rd+Math.random()*0.03);
+				
+				for (var j=i*9; j<i*9+9; ++j) 
+					if (isNaN(positions[j])){
+						randomizePosition(i*9);
+						break;
+					}
+				
+				cx = (p0.x + p1.x + p2.x) * 0.33333 *IMGW;
+				cy = (p0.y + p1.y + p2.y) * 0.33333 *IMGW;
+
+				j = ((cx | 0) + (cy | 0) * IMGW) << 2;
+			
+				colors[i*9]=colors[i*9+3]=colors[i*9+6]=imageData[j]/256;
+				colors[i*9+1]=colors[i*9+4]=colors[i*9+7]=imageData[j+1]/256;
+				colors[i*9+2]=colors[i*9+5]=colors[i*9+8]=imageData[j+2]/256;
+			}
+
+			var geometry = new THREE.BufferGeometry();
+			geometry.addAttribute( 'position', new THREE.BufferAttribute( positions, 3 ) );
+			geometry.addAttribute( 'customColor', new THREE.BufferAttribute( colors, 3 ) );
+
+			//texture=new THREE.DataTexture(imageData, IMGW, IMGW);
+			return new THREE.Mesh(geometry, material);
+		}; 
+		
+		function startLevel(upDir, leftDir){
+			TWEEN.removeAll();
+			Interactions.Down=function D1(x,y){
+				Interactions.Down=null;
+				var oVec=camera.position.clone();
+				var oRot=camera.quaternion.clone();
+				var rotQuan;
+				Interactions.Move=function(nx,ny){
+					animator=animate;
+					//requestAnimationFrame(animate);
+					var dT=x-nx, dL=y-ny;
+					var moveVec=(new THREE.Vector3())
+						.addScaledVector(upDir,dL)
+						.addScaledVector(leftDir,dT);
+					var l=moveVec.length();
+					if (l<0.0001) return;
+					moveVec.multiplyScalar(cRADIUS/l);
+					var rad=l/(RADIUS*Math.PI)*10;
+					var cos=Math.cos(rad), sin=Math.sin(rad);
+					camera.position.addVectors(
+						oVec.clone().multiplyScalar(cos), 
+						moveVec.multiplyScalar(sin)
+					);
+					rotQuan=(new THREE.Quaternion()).setFromAxisAngle(moveVec.cross(oVec).normalize(), -rad);
+					camera.rotation.setFromQuaternion(
+						rotQuan.multiply(oRot));
+						
+				}
+				Interactions.Up=function(nx,ny){
+					Interactions.Down=D1;
+					Interactions.Move=null;
+					Interactions.Up=null;
+					
+					var Quat=new THREE.Quaternion().setFromAxisAngle(oVec.clone().cross(camera.position).normalize(),camera.position.angleTo(oVec));
+					leftDir.applyQuaternion(Quat).normalize();	
+					upDir=(new THREE.Vector3()).crossVectors(leftDir, camera.position).normalize();
+					
+					if (camera.position.distanceTo ( correct )<10){ 
+						Interactions.Down=null;
+						Interactions.Move=null;
+						Interactions.Up=null;
+						
+						function lookRight(){
+							var w=camera.position.angleTo(correct);
+							var axis=(new THREE.Vector3()).crossVectors(correct, camera.position).normalize();
+							var oQuaternion=camera.quaternion.clone();
+							var oPos=camera.position.clone();
+							
+							var tween=new TWEEN.Tween({w:0})
+								.to({w:w}, 400)
+								.onUpdate(function(){
+									camera.rotation.setFromQuaternion(
+										(new THREE.Quaternion()).setFromAxisAngle(axis, -this.w).multiply(oQuaternion));
+									var vPos=oPos.clone().applyAxisAngle(axis, -this.w);
+									camera.position.x=vPos.x;
+									camera.position.y=vPos.y;
+									camera.position.z=vPos.z;
+									//console.log(camera.position);
+								})
+								.onComplete(function(){
+									upDir=upDir.applyAxisAngle(axis, -w);
+									rotBack();
+								})
+								.start();
+						}
+						
+						function rotBack(){
+							var axis=(new THREE.Vector3()).crossVectors(upDir, sUp).normalize();
+							var w=upDir.angleTo(sUp);
+							var oQuaternion=camera.quaternion.clone();
+							
+							var tween=new TWEEN.Tween({w:0})
+								.to({w:-w+Math.PI}, 400)
+								.onUpdate(function(){
+									camera.rotation.setFromQuaternion(
+										(new THREE.Quaternion()).setFromAxisAngle(axis, -this.w).multiply(oQuaternion));
+								})
+								.onComplete(function(){
+									animator=null;
+									level+=1;
+									$("#progressContainer").fadeOut(500);
+									if (level==games.length){
+										$("#finalContainer").fadeIn(1000);
+										document.title="Galleriod - 通关啦！"
+										level=0;
+									}
+									else{
+										$("#nextContainer").fadeIn(1000);
+										document.title="Galleriod - 我在玩第"+level+"关，你也试试吧！";
+									}
+								})
+								.start();
+						}
+						
+						lookRight();
+						
+						animator=TWEENer;
+					}
+					
+				}
+			}
+			
+			function animate(){
+				renderer.render(scene, camera);
+				animator=null;
+			}
+			animate();
+			return {
+				endGame:"" 
+			}
+		}
+		
+		function Home(imageData){
+			animator=null;
+			scene = new THREE.Scene();
+		
+			var container, stats;
+			var geometry, materials = [];
+					
+			scene.add(generateMesh(imageData));
+			
+			resetCamera(function (){
+				var coords = { rad: 0 };
+				var tween = new TWEEN.Tween(coords)
+					.to({ rad: Math.PI*2 }, 20000)
+					.easing(TWEEN.Easing.Cubic.InOut)
+					.onUpdate(function() {
+						move(this.rad);
+						op=Math.pow(Math.sin(this.rad/2),0.3);
+						color=[parseInt(256-op*180),
+							   parseInt(256-op*230),
+							   parseInt(256-op*256)].join(",");
+						$("#logoshare").css({
+							"background-color":
+							"rgba("+color+","+(0.3+0.4*op)+")"
+						});
+					});
+				tween.repeat(Infinity);
+				tween.start();
+				
+				function move(rad){
+					camera.position.z=Math.sin(rad)*cRADIUS;
+					camera.position.y=-Math.cos(rad)*cRADIUS;
+					camera.rotation.x=-rad+Math.PI/2;
+				}
+				
+				animator = function(){
+					TWEEN.update()
+					renderer.render(scene, camera);
+				}
+			});
+			notReady=false;
+		}
+		//Home();
+		source = new Image();
+		source.src="imgs/starrynight.jpg";
+		
+		source.onload=function(){
+			homeView();
+		}
+		
+		function homeView(){
+			var canvas = document.createElement('canvas');
+			var width  = canvas.width = source.width;;
+			var height = canvas.height = source.height;
+			
+			context = canvas.getContext('2d');
+			context.drawImage(source, 0, 0, width, height);
+			var imageData = context.getImageData(0, 0, width, height);
+			
+			Home(imageData.data);
+		}
+		
+		var animator, renderFun=function(){
+			requestAnimationFrame(renderFun);
+			if (animator) animator();
+		};
+		requestAnimationFrame(renderFun);
+		
+		var games=[
+			{url:"imgs/starrynight.jpg", thumb:"imgs/thumbs/starrynight.jpg", name:"星夜", author:"Vincent van Gogh, 1889 A.D", brief:"梵高的《星夜》是一场诞生于精神病院的华丽的幻觉。Galleriod的第一关，就是拼回Galaxy"},
+			{url:"imgs/scream.jpg", thumb:"imgs/thumbs/scream.jpg", name:"呐喊", author:"Edvard Munch, 1893 A.D", brief:"表现主义绘画风格中最为著名的作品。（喂那个人！不要叫了！画都碎了！快拼起来！）"},
+			{url:"imgs/lastsupper.jpg", thumb:"imgs/thumbs/lastsupper.jpg", name:"最后的晚餐", author:"Leonardo da Vinci, 1494–1498 A.D", brief:"最著盛名的壁画之一。万一哪天壁画成为了随时瓦砾，你也可以修复它。"},
+			{url:"imgs/asunday.jpg", thumb:"imgs/thumbs/asunday.jpg", name:"大碗岛的星期天下午", author:"Georges-Pierre Seurat, 1884–1886 A.D", brief:"法国画家乔治·修拉最著名的代表作之一，经典的点彩画派作品。它就隐藏在这碎片中"},
+			{url:"imgs/BaldumoulindelaGalette.jpg", thumb:"imgs/thumbs/BaldumoulindelaGalette.jpg", name:"煎饼磨坊的舞会", author:"Pierre-Auguste Renoir, 1876 A.D", brief:"前期印象派画家皮耶-奥古斯特·雷诺阿 在1876年的作品之一，现藏于Galleriod博物馆"},
+			{url:"imgs/monalisa.jpg", thumb:"imgs/thumbs/monalisa.jpg", name:"Monna Lisa", author:"Leonardo da Vinci, 1503-1517 A.D", brief:"《蒙娜丽莎》是达芬奇的传世之作，现藏于法国卢浮宫—— 不对，是隐藏于Galleriod的碎片中"},
+			{url:"imgs/thespring.jpg", thumb:"imgs/thumbs/thespring.jpg", name:"The Source", author:"Jean Auguste Dominique Ingres, 1820-1856 A.D", brief:"让·安格尔花了36年才画出这个年轻女子，而你应该并不需要36年才能看到她。"},
+			{url:"imgs/thepersistenceofmemory.jpg", thumb:"imgs/thumbs/thepersistenceofmemory.jpg", name:"记忆的坚持", author:"Salvador Dalí, 1931 A.D", brief:"萨尔瓦多·达利的超现实主义画作，我是看不懂啦，不知你看懂了没有？"},
+			{url:"imgs/thegirlwiththepearlearring.jpg", thumb:"imgs/thumbs/thegirlwiththepearlearring.jpg", name:"戴珍珠耳环的少女", author:"Johannes Vermeer, 1665 A.D", brief:"扬·弗美尔是一个神秘的人，正如这个少女的身份同样神秘，正如这碎片一般令人费解"},
+			{url:"imgs/guernica.jpg", thumb:"imgs/thumbs/guernica.jpg", name:"Guernica", author:"Pablo Picasso, 1937 A.D", brief:"毕加索通过《格尔尼卡》描绘了经受炸弹蹂躏之后的格尔尼卡城，碎片都在你眼前了"},
+			{url:"imgs/sunrise.jpg", thumb:"imgs/thumbs/sunrise.jpg", name:"印象·日出", author:"Claude Monet, 1872 A.D", brief:"终于轮到莫奈了！说实在的，印象派的作品本来就是碎片哎，拼与不拼没啥区别，哈哈！"},
+		];
+			
+		var level=0;
+		function initGame(){
+			TWEEN.removeAll();
+			resetQueue=null;
+			notReady=true;
+			$('.paintingThumb').attr("src",games[level].thumb);
+			$('.paintingName').html(games[level].name);
+			$('.AuthorDate').html(games[level].author);
+			$('.paintingBrief').html(games[level].brief);
+			$('#homeContainer').fadeOut(1000,function(){
+				$('#introContainer').fadeIn(500,function(){
+					
+				});
+			})
+			
+			var done1=false, done2=false;
+			goFarCamera(function(){
+				done1=true;
+				if (done1 && done2)
+					homeLevel();
+				
+			})
+			gameImage=new Image();
+			gameImage.src=games[level].url;
+			gameImage.onload=function(){
+				done2=true;
+				if (done1 && done2)
+					homeLevel();
+			}
+			
+			function homeLevel(){
+				var canvas = document.createElement('canvas');
+				var width  = canvas.width = gameImage.width;;
+				var height = canvas.height = gameImage.height;
+				
+				context = canvas.getContext('2d');
+				context.drawImage(gameImage, 0, 0, width, height);
+				var imageData = context.getImageData(0, 0, width, height);
+				Home(imageData.data);
+			}
+		}
+		var notReady=true;
+		$("#startIt").bind("click touchstart",function(){
+			if (notReady) return;
+			$("#introContainer").fadeOut(500);
+			$("#progressContainer").fadeIn(500);
+			if (!resetQueue) doit();
+			else resetQueue=doit;
+			function doit(){
+				var upDir=new THREE.Vector3(1,0,0);
+				var leftDir=(new THREE.Vector3()).crossVectors(upDir, camera.position).normalize();
+				shuffleCamera(upDir, leftDir,5);
+			}
+		});
+		$("#menuStart").bind("click touchstart",function(){initGame()});
+		$(".clos").bind("click touchstart",function(){$(this.parentNode.parentNode).hide()});
+		$("#forgetit").bind("click touchstart",function(){$("#abandonM").hide()});
+		$("#abandonBtn").bind("click touchstart",function(){$("#abandonM").show()});
+		$("#nextLvl").bind("click touchstart",function(){
+			$("#nextContainer").fadeOut(500);
+			initGame()}
+		);
+		$("#returnIntro").bind("click touchstart",function(){ 
+			$("#introContainer").fadeOut(500);
+			$('#homeContainer').fadeIn(500);
+		});
+		$("#returnToMain").bind("click touchstart",function(){ 
+			TWEEN.removeAll();
+			Interactions.Down=null;
+			Interactions.Move=null;
+			Interactions.Up=null;
+			$('#homeContainer').fadeIn(500);
+			$('#nextContainer').fadeOut(500);
+			goFarCamera(homeView);
+		});
+		$("#finished").bind("click touchstart",function(){ 
+			TWEEN.removeAll();
+			Interactions.Down=null;
+			Interactions.Move=null;
+			Interactions.Up=null;
+			$('#homeContainer').fadeIn(500);
+			$('#finalContainer').fadeOut(500);
+			goFarCamera(homeView);
+		});
+		$("#confirmabandon").bind("click touchstart",function(){ 
+			TWEEN.removeAll();
+			Interactions.Down=null;
+			Interactions.Move=null;
+			Interactions.Up=null;
+			$("#abandonM").fadeOut(500);
+			$("#progressContainer").fadeOut(500);
+			$('#homeContainer').fadeIn(500);
+			goFarCamera(homeView)
+		});
+	</script>
+		
+</body>
+</html>
